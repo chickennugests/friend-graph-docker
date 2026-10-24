@@ -48,6 +48,7 @@ select{max-width:140px;padding:4px 6px;border:1px solid var(--line);border-radiu
 .legend{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:4px;background:var(--panel);padding:8px 10px;border-radius:8px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.12);pointer-events:none}.legend span{display:flex;align-items:center;gap:8px}
 .sessbar{display:flex;gap:6px;align-items:center}.sessbar select{flex:1;max-width:none;min-width:0;padding:8px;font-size:14px}.sessbar.sm button{padding:4px 8px;font-size:12px}
 #login{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20}#login.on{display:flex}#login form{flex-direction:column;background:var(--panel);padding:20px;border-radius:12px;border:1px solid var(--line);width:300px}
+.sp{display:flex;align-items:center;gap:6px;background:var(--panel);padding:6px 10px;border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);font-size:13px}.sp input{width:90px}
 @media (max-width:760px){.app{flex-direction:column-reverse}aside{width:100%;height:46%;border-right:0;border-top:1px solid var(--line)}main{flex:1}}
 </style>
 </head>
@@ -64,12 +65,12 @@ select{max-width:140px;padding:4px 6px;border:1px solid var(--line);border-radiu
 <main>
   <canvas id="c"></canvas>
   <div class="bar">
+    <label class="sp">Spacing <input type="range" id="spc" min="0.6" max="3" step="0.1"></label>
     <button id="bSize" title="Scale circles by number of connections">Size by links: off</button>
     <button id="bSample">Sample</button>
     <button id="bExport">Export PNG</button>
     <button id="bClear" class="del">Clear</button>
   </div>
-  <div class="legend"><span><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#ff6b8b" stroke-width="4.5"/></svg>Close friend</span><span><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" style="stroke:var(--edge)" stroke-width="2.5"/></svg>Friend</span><span><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" style="stroke:var(--edge)" stroke-width="1.5" stroke-dasharray="5 5"/></svg>Acquaintance</span></div>
   <div class="hint">Drag a person to move · drag from the outer ring onto someone to connect · drag a line onto someone else to re-link it · click a line to select it · scroll to zoom</div>
 </main>
 </div>
@@ -79,7 +80,7 @@ select{max-width:140px;padding:4px 6px;border:1px solid var(--line);border-radiu
 const $=s=>document.querySelector(s);
 const COLORS=['#5b7cff','#ff6b8b','#2fbf8f','#ffa940','#a47bff','#33c3e0','#ee7ac8','#8bc34a'];
 const TYPES={friend:{label:'Friend',w:2.5,dash:[],color:null},close:{label:'Close friend',w:4.5,dash:[],color:'#ff6b8b'},acq:{label:'Acquaintance',w:1.5,dash:[5,5],color:null}};
-let nodes=[],edges=[],sel=null,selEdge=null,uid=1,sizeByDeg=false,alpha=1,curType='friend';
+let nodes=[],edges=[],sel=null,selEdge=null,uid=1,sizeByDeg=false,alpha=1,curType='friend',space=Math.min(3,Math.max(0.6,parseFloat((()=>{try{return localStorage.getItem('fg.space')}catch(e){return null}})())||1.5));
 const view={x:0,y:0,k:1};
 const cv=$('#c'),ctx=cv.getContext('2d');
 let W=0,H=0,dpr=1;
@@ -201,14 +202,14 @@ function step(){
     for(let j=i+1;j<n;j++){
       const b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;
       if(d2<1){dx=Math.random()-.5;dy=Math.random()-.5;d2=1}
-      const d=Math.sqrt(d2),f=4200/Math.max(d2,400)*alpha;
+      const d=Math.sqrt(d2),f=4200*space*space/Math.max(d2,400)*alpha;
       a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;
     }
-    a.vx-=a.x*0.004*alpha;a.vy-=a.y*0.004*alpha;
+    a.vx-=a.x*0.004/space*alpha;a.vy-=a.y*0.004/space*alpha;
   }
   for(const e of edges){
     const a=byId(e.a),b=byId(e.b);if(!a||!b)continue;
-    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-({close:90,friend:130,acq:190}[e.t]||130))*0.03*alpha;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-space*({close:90,friend:130,acq:190}[e.t]||130))*0.03*alpha;
     a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;
   }
   for(const m of nodes){
@@ -251,7 +252,27 @@ function paint(c,w,h,v,bg,transparentUI){
     c.fillStyle=ink;c.font='13px system-ui,sans-serif';c.textBaseline='top';
     c.fillText(n.name.trim(),n.x,n.y+r+(n.id===sel?12:5));
   }
-  c.restore();c.globalAlpha=1;
+  c.restore();c.globalAlpha=1;drawLegend(c,transparentUI);
+}
+function drawLegend(c,full){
+  const css=getComputedStyle(document.documentElement),g=k=>css.getPropertyValue(k).trim();
+  const rows=[['close','Close friend','Inner circle, pulled in tightest'],['friend','Friend','Regular friend'],['acq','Acquaintance','Know them, kept at a distance']];
+  const notes=['Closer together = stronger tie'];
+  if(sizeByDeg)notes.push('Bigger circle = more connections');
+  notes.push(nodes.length+' people · '+edges.length+' connections');
+  const x=12,y=12,w=full?280:150,rh=full?38:22,hh=(full?34:26)+rows.length*rh+(full?notes.length*16+6:0);
+  c.save();c.globalAlpha=1;c.setLineDash([]);
+  c.fillStyle=g('--panel');c.strokeStyle=g('--line');c.lineWidth=1;
+  c.beginPath();if(c.roundRect)c.roundRect(x,y,w,hh,8);else c.rect(x,y,w,hh);c.fill();c.stroke();
+  c.fillStyle=g('--mute');c.font='600 11px system-ui,sans-serif';c.textAlign='left';c.textBaseline='middle';
+  c.fillText(full?'HOW TO READ THIS GRAPH':'CONNECTIONS',x+10,y+14);
+  rows.forEach(([k,l,d],i)=>{const T=TYPES[k],cy=y+(full?44:36)+i*rh;
+    c.strokeStyle=T.color||g('--edge');c.lineWidth=T.w;c.setLineDash(T.dash);c.beginPath();c.moveTo(x+10,cy);c.lineTo(x+44,cy);c.stroke();c.setLineDash([]);
+    c.fillStyle=g('--ink');c.font='13px system-ui,sans-serif';c.fillText(l,x+54,full?cy-7:cy);
+    if(full){c.fillStyle=g('--mute');c.font='11px system-ui,sans-serif';c.fillText(d,x+54,cy+8)}});
+  if(full){c.fillStyle=g('--mute');c.font='11px system-ui,sans-serif';
+    notes.forEach((t,i)=>c.fillText(t,x+10,y+40+rows.length*rh+i*16))}
+  c.restore();
 }
 function frame(){step();ctx.setTransform(dpr,0,0,dpr,0,0);paint(ctx,W,H,view,null,false);requestAnimationFrame(frame)}
 
@@ -338,8 +359,8 @@ $('#bClear').onclick=()=>{
 $('#bExport').onclick=()=>{
   if(!nodes.length)return;
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-  nodes.forEach(n=>{const r=rad(n);x0=Math.min(x0,n.x-r-60);x1=Math.max(x1,n.x+r+60);y0=Math.min(y0,n.y-r-30);y1=Math.max(y1,n.y+r+50)});
-  const w=x1-x0,h=y1-y0,s=2,o=document.createElement('canvas');o.width=w*s;o.height=h*s;
+  nodes.forEach(n=>{const r=rad(n);x0=Math.min(x0,n.x-r-60);x1=Math.max(x1,n.x+r+60);y0=Math.min(y0,n.y-r-240);y1=Math.max(y1,n.y+r+50)});
+  const w=Math.max(x1-x0,310),h=y1-y0,s=2,o=document.createElement('canvas');o.width=w*s;o.height=h*s;
   const bg=getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()||'#fff';
   const oc=o.getContext('2d');oc.scale(s,s);
   paint(oc,w,h,{x:-x0,y:-y0,k:1},bg,true);
@@ -354,6 +375,7 @@ function resize(){
   if(first){view.x=W/2;view.y=H/2}
 }
 new ResizeObserver(resize).observe(cv);
+$('#spc').value=space;$('#spc').oninput=e=>{space=+e.target.value;try{localStorage.setItem('fg.space',space)}catch(err){}alpha=1};
 syncSize();syncSeg();resize();render();frame();init();
 </script>
 </body>
