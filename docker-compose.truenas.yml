@@ -2,7 +2,7 @@
 # The TrueNAS UI does not read .env, so values are inline here. Edit before pasting.
 services:
   friend-graph:
-    image: ghcr.io/OWNER/friend-graph:latest
+    image: ghcr.io/chickennugests/friend-graph-docker:latest
     container_name: friend-graph
     restart: unless-stopped
     user: "568:568"

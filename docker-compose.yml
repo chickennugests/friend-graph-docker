@@ -3,7 +3,7 @@
 # Build:  docker compose up -d --build
 services:
   friend-graph:
-    image: ${IMAGE:-ghcr.io/OWNER/friend-graph:latest}
+    image: ${IMAGE:-ghcr.io/chickennugests/friend-graph-docker:latest}
     build: .
     container_name: friend-graph
     restart: unless-stopped
