@@ -1,0 +1,8 @@
+{
+  "name": "friend-graph",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted friend network graph with saved sessions",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

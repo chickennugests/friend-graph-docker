@@ -1,0 +1,23 @@
+# Values come from .env (copy .env.example to .env)
+# Pull:   docker compose up -d
+# Build:  docker compose up -d --build
+services:
+  friend-graph:
+    image: ${IMAGE:-ghcr.io/OWNER/friend-graph:latest}
+    build: .
+    container_name: friend-graph
+    restart: unless-stopped
+    user: "${PUID:-568}:${PGID:-568}"
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+      APP_PASSWORD: ${APP_PASSWORD:-}
+    ports:
+      - "${HOST_PORT:-8085}:8080"
+    volumes:
+      - ${DATA_PATH:-./data}:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3

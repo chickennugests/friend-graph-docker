@@ -1,0 +1,16 @@
+# TrueNAS SCALE > Apps > Discover Apps > Install via YAML
+# The TrueNAS UI does not read .env, so values are inline here. Edit before pasting.
+services:
+  friend-graph:
+    image: ghcr.io/OWNER/friend-graph:latest
+    container_name: friend-graph
+    restart: unless-stopped
+    user: "568:568"
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+      APP_PASSWORD: "CHANGE_ME"
+    ports:
+      - "8085:8080"
+    volumes:
+      - /mnt/SSD/Applications/friend-graph/data:/data

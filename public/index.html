@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Friend Graph</title>
+<style>
+:root{--bg:#f6f7fb;--panel:#fff;--ink:#1c2033;--mute:#6b7190;--line:#d7dbea;--edge:#9aa3c7;--accent:#5b7cff;--canvas:#fbfcff;--danger:#e5484d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141f;--panel:#1b1e2d;--ink:#e8eaf6;--mute:#8d93b3;--line:#2c3045;--edge:#5a6290;--canvas:#161826;--accent:#7b96ff;--danger:#ff6369}}
+:root[data-theme="dark"]{--bg:#12141f;--panel:#1b1e2d;--ink:#e8eaf6;--mute:#8d93b3;--line:#2c3045;--edge:#5a6290;--canvas:#161826;--accent:#7b96ff;--danger:#ff6369}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{display:flex;height:100%}
+aside{width:320px;max-width:100%;background:var(--panel);border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+h1{font-size:18px;margin:0}
+.sub{color:var(--mute);font-size:12px;margin-top:2px}
+form{display:flex;gap:6px}
+input[type=text]{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:8px 12px;border-radius:8px}
+button:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.del{color:var(--danger)}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:6px 0 4px}
+.list{display:flex;flex-direction:column;gap:2px}
+.row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer}
+.row:hover{background:var(--bg)}
+.row input{accent-color:var(--accent);width:16px;height:16px}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.row .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .d{color:var(--mute);font-size:12px}
+.sw{display:flex;gap:6px;flex-wrap:wrap}
+.sw span{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+.sw span.on{border-color:var(--ink)}
+main{flex:1;position:relative;min-width:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;background:var(--canvas);touch-action:none;display:block}
+.bar{position:absolute;top:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.bar button{background:var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.hint{position:absolute;left:12px;bottom:12px;right:12px;color:var(--mute);font-size:12px;pointer-events:none}
+.empty{color:var(--mute);padding:8px 2px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:9}
+#modal.on{display:flex}
+#modal div{background:var(--panel);padding:14px;border-radius:12px;max-width:min(900px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:10px}
+#modal img{max-width:100%;border-radius:8px;border:1px solid var(--line)}
+.seg{display:flex;gap:4px;flex-wrap:wrap}.seg button{padding:6px 9px;font-size:12px;display:flex;align-items:center;gap:6px}.seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+select{max-width:140px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px}
+.legend{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:4px;background:var(--panel);padding:8px 10px;border-radius:8px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.12);pointer-events:none}.legend span{display:flex;align-items:center;gap:8px}
+.sessbar{display:flex;gap:6px;align-items:center}.sessbar select{flex:1;max-width:none;min-width:0;padding:8px;font-size:14px}.sessbar.sm button{padding:4px 8px;font-size:12px}
+#login{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20}#login.on{display:flex}#login form{flex-direction:column;background:var(--panel);padding:20px;border-radius:12px;border:1px solid var(--line);width:300px}
+@media (max-width:760px){.app{flex-direction:column-reverse}aside{width:100%;height:46%;border-right:0;border-top:1px solid var(--line)}main{flex:1}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div><h1>Friend Graph</h1><div class="sub">Add people, link them up, watch clusters form</div></div>
+  <div class="sessbar"><select id="sess"></select><button id="sNew">+ New</button></div>
+  <div class="sessbar sm"><span id="stat" class="sub">Connecting…</span><span style="flex:1"></span><button id="sRen">Rename</button><button id="sDel" class="del">Delete</button></div>
+  <form id="addf"><input type="text" id="name" placeholder="Add people (comma separated)" autocomplete="off"><button class="pri">Add</button></form>
+  <div><div class="sub" style="margin-bottom:4px">New connections are:</div><div class="seg" id="seg"></div></div>
+  <div id="panel"></div>
+</aside>
+<main>
+  <canvas id="c"></canvas>
+  <div class="bar">
+    <button id="bSize" title="Scale circles by number of connections">Size by links: off</button>
+    <button id="bSample">Sample</button>
+    <button id="bExport">Export PNG</button>
+    <button id="bClear" class="del">Clear</button>
+  </div>
+  <div class="legend"><span><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#ff6b8b" stroke-width="4.5"/></svg>Close friend</span><span><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" style="stroke:var(--edge)" stroke-width="2.5"/></svg>Friend</span><span><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" style="stroke:var(--edge)" stroke-width="1.5" stroke-dasharray="5 5"/></svg>Acquaintance</span></div>
+  <div class="hint">Drag a person to move · drag from the outer ring onto someone to connect · drag a line onto someone else to re-link it · click a line to select it · scroll to zoom</div>
+</main>
+</div>
+<div id="login"><form id="loginf"><h1>Friend Graph</h1><input type="text" id="pw" placeholder="Password" autocomplete="current-password" style="-webkit-text-security:disc"><button class="pri">Unlock</button><span id="loginerr" class="sub" style="color:var(--danger)"></span></form></div>
+<div id="modal"><div><img id="mimg" alt="Graph export"><a id="mdl" download="friend-graph.png"><button class="pri">Download PNG</button></a><button id="mclose">Close</button><span class="sub">If download is blocked, long-press or right-click the image to save</span></div></div>
+<script>
+const $=s=>document.querySelector(s);
+const COLORS=['#5b7cff','#ff6b8b','#2fbf8f','#ffa940','#a47bff','#33c3e0','#ee7ac8','#8bc34a'];
+const TYPES={friend:{label:'Friend',w:2.5,dash:[],color:null},close:{label:'Close friend',w:4.5,dash:[],color:'#ff6b8b'},acq:{label:'Acquaintance',w:1.5,dash:[5,5],color:null}};
+let nodes=[],edges=[],sel=null,selEdge=null,uid=1,sizeByDeg=false,alpha=1,curType='friend';
+const view={x:0,y:0,k:1};
+const cv=$('#c'),ctx=cv.getContext('2d');
+let W=0,H=0,dpr=1;
+
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+let token=ls.get('fg.token')||'',sid=null,saveT=null,dirty=false,sessions=[];
+async function api(path,opt={}){
+  const r=await fetch('api'+path,{...opt,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})}});
+  if(r.status===401){showLogin();throw new Error('auth')}
+  if(!r.ok)throw new Error('http '+r.status);
+  return r.status===204?null:r.json();
+}
+const setStatus=t=>{$('#stat').textContent=t};
+function save(){if(!sid)return;dirty=true;setStatus('Saving…');clearTimeout(saveT);saveT=setTimeout(flush,500)}
+async function flush(){
+  clearTimeout(saveT);if(!sid||!dirty)return;
+  const id=sid,graph={nodes:nodes.map(({id,name,color,x,y})=>({id,name,color,x,y})),edges,uid,sizeByDeg,curType};
+  dirty=false;
+  try{await api('/sessions/'+id,{method:'PUT',body:JSON.stringify({graph}),keepalive:true});if(!dirty)setStatus('Saved ✓')}
+  catch(e){dirty=true;setStatus('Offline, retrying…');saveT=setTimeout(flush,3000)}
+}
+async function refresh(){
+  const l=await api('/sessions');l.sort((a,b)=>b.updated-a.updated);sessions=l;
+  $('#sess').innerHTML=l.map(s=>`<option value="${s.id}" ${s.id===sid?'selected':''}>${esc(s.name)} · ${s.people}p / ${s.links}l</option>`).join('');
+  return l;
+}
+async function openSession(id){
+  if(dirty){await flush();if(dirty){setStatus('Unsaved changes, cannot switch');await refresh().catch(()=>{});return}}
+  const s=await api('/sessions/'+id),g=s.graph||{};
+  nodes=(g.nodes||[]).map(n=>({...n,vx:0,vy:0}));edges=g.edges||[];
+  uid=g.uid||nodes.reduce((m,n)=>Math.max(m,n.id+1),1);sizeByDeg=!!g.sizeByDeg;curType=g.curType||'friend';
+  sid=id;sel=null;selEdge=null;alpha=0.05;view.k=1;view.x=W/2;view.y=H/2;ls.set('fg.sid',id);
+  syncSize();syncSeg();render();await refresh();setStatus('Saved ✓');
+}
+async function newSession(name){const s=await api('/sessions',{method:'POST',body:JSON.stringify({name})});await openSession(s.id)}
+async function init(){
+  try{
+    const l=await refresh();
+    if(!l.length){await newSession('My graph');return}
+    const last=ls.get('fg.sid');
+    await openSession(l.find(s=>s.id===last)?last:l[0].id);
+  }catch(e){if(e.message!=='auth')setStatus('Cannot reach server')}
+}
+function showLogin(){$('#login').classList.add('on');setTimeout(()=>$('#pw').focus(),50)}
+$('#loginf').onsubmit=async e=>{
+  e.preventDefault();token=$('#pw').value;ls.set('fg.token',token);$('#loginerr').textContent='';
+  try{await api('/sessions');$('#login').classList.remove('on');$('#pw').value='';await init()}
+  catch(er){$('#loginerr').textContent='Wrong password'}
+};
+$('#sess').onchange=e=>openSession(e.target.value);
+$('#sNew').onclick=()=>{const n=prompt('Session name','Untitled');if(n)newSession(n.trim().slice(0,60)||'Untitled')};
+$('#sRen').onclick=async()=>{
+  const c=sessions.find(s=>s.id===sid);const n=prompt('Rename session',c?c.name:'');
+  if(n&&n.trim()){await api('/sessions/'+sid,{method:'PATCH',body:JSON.stringify({name:n.trim().slice(0,60)})});refresh()}
+};
+$('#sDel').onclick=async()=>{
+  if(!confirm('Delete this session permanently?'))return;
+  dirty=false;clearTimeout(saveT);await api('/sessions/'+sid,{method:'DELETE'});sid=null;await init();
+};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)flush()});
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId=id=>nodes.find(n=>n.id===id);
+const hasEdge=(a,b)=>edges.some(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
+const edgeType=(a,b)=>{const e=edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));return e?(e.t||'friend'):''};
+function setEdge(a,b,t){const i=edges.findIndex(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));if(!t){if(i>=0)edges.splice(i,1)}else if(i>=0)edges[i].t=t;else edges.push({a,b,t});alpha=1;save()}
+const segHTML=cur=>Object.entries(TYPES).map(([k,v])=>`<button type="button" data-t="${k}" class="${k===cur?'on':''}"><i style="display:inline-block;width:16px;border-top:${v.w}px ${v.dash.length?'dashed':'solid'} ${v.color||'currentColor'}"></i>${v.label}</button>`).join('');
+const wireSeg=(el,fn)=>el.querySelectorAll('button').forEach(b=>b.onclick=()=>fn(b.dataset.t));
+const selOpts=cur=>[['','None'],['acq','Acquaintance'],['friend','Friend'],['close','Close friend']].map(([v,l])=>`<option value="${v}" ${v===cur?'selected':''}>${l}</option>`).join('');
+function syncSeg(){$('#seg').innerHTML=segHTML(curType);wireSeg($('#seg'),t=>{curType=t;save();syncSeg()})}
+const deg=id=>edges.reduce((t,e)=>t+(e.a===id||e.b===id?1:0),0);
+const rad=n=>sizeByDeg?16+Math.min(deg(n.id)*3,20):20;
+const initials=s=>s.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
+
+function addPerson(name){
+  const c=sel?byId(sel):null,a=Math.random()*6.28;
+  const n={id:uid++,name,color:COLORS[nodes.length%COLORS.length],x:(c?c.x:0)+Math.cos(a)*90,y:(c?c.y:0)+Math.sin(a)*90,vx:0,vy:0};
+  nodes.push(n);return n;
+}
+function toggleEdge(a,b){
+  const i=edges.findIndex(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
+  if(i>=0)edges.splice(i,1);else edges.push({a,b,t:curType});
+  alpha=1;save();
+}
+function removePerson(id){
+  nodes=nodes.filter(n=>n.id!==id);edges=edges.filter(e=>e.a!==id&&e.b!==id);
+  if(sel===id)sel=null;selEdge=null;alpha=1;save();render();
+}
+
+/* ---------- panel ---------- */
+function render(){
+  const p=$('#panel');
+  if(selEdge){
+    const A=byId(selEdge.a),B=byId(selEdge.b);
+    p.innerHTML=`<h2>Connection</h2><div class="row"><span class="dot" style="background:${A.color}"></span>${esc(A.name)}<span class="d">↔</span><span class="dot" style="background:${B.color}"></span>${esc(B.name)}</div><h2>Type</h2><div class="seg" id="eseg">${segHTML(selEdge.t||'friend')}</div><button class="del" id="rmE" style="margin-top:8px">Remove connection</button><button id="back" style="margin-top:6px">Back</button>`;
+    wireSeg($('#eseg'),t=>{selEdge.t=t;alpha=1;save();render()});
+    $('#rmE').onclick=()=>{toggleEdge(selEdge.a,selEdge.b);selEdge=null;render()};
+    $('#back').onclick=()=>{selEdge=null;render()};
+  }else if(sel){
+    const n=byId(sel);
+    const others=nodes.filter(m=>m.id!==n.id);
+    p.innerHTML=`<h2>Selected</h2><input type="text" id="nm" value="${esc(n.name)}"><h2>Colour</h2><div class="sw">${COLORS.map(c=>`<span data-c="${c}" class="${c===n.color?'on':''}" style="background:${c}"></span>`).join('')}</div><h2>Connections</h2><div class="list">${others.length?others.map(m=>`<div class="row"><span class="dot" style="background:${m.color}"></span><span class="n">${esc(m.name)}</span><select data-id="${m.id}">${selOpts(edgeType(n.id,m.id))}</select></div>`).join(''):'<div class="empty">Add more people first</div>'}</div><div style="display:flex;gap:6px;margin-top:8px"><button id="back">Done</button><button class="del" id="rmP">Remove person</button></div>`;
+    $('#nm').oninput=e=>{n.name=e.target.value||' ';save()};
+    p.querySelectorAll('.sw span').forEach(s=>s.onclick=()=>{n.color=s.dataset.c;save();render()});
+    p.querySelectorAll('select[data-id]').forEach(i=>i.onchange=()=>{setEdge(n.id,+i.dataset.id,i.value)});
+    $('#back').onclick=()=>{sel=null;render()};
+    $('#rmP').onclick=()=>removePerson(n.id);
+  }else{
+    p.innerHTML=`<h2>${nodes.length} people · ${edges.length} connections</h2>`+(nodes.length?`<div class="list">${nodes.map(n=>`<div class="row" data-id="${n.id}"><span class="dot" style="background:${n.color}"></span><span class="n">${esc(n.name)}</span><span class="d">${deg(n.id)}</span></div>`).join('')}</div>`:'<div class="empty">Nobody yet. Type names above and press Enter.</div>');
+    p.querySelectorAll('.row').forEach(r=>r.onclick=()=>{sel=+r.dataset.id;render()});
+  }
+}
+
+/* ---------- simulation ---------- */
+function step(){
+  if(alpha<0.02)return;
+  const n=nodes.length;
+  for(let i=0;i<n;i++){
+    const a=nodes[i];
+    for(let j=i+1;j<n;j++){
+      const b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;
+      if(d2<1){dx=Math.random()-.5;dy=Math.random()-.5;d2=1}
+      const d=Math.sqrt(d2),f=4200/Math.max(d2,400)*alpha;
+      a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;
+    }
+    a.vx-=a.x*0.004*alpha;a.vy-=a.y*0.004*alpha;
+  }
+  for(const e of edges){
+    const a=byId(e.a),b=byId(e.b);if(!a||!b)continue;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-({close:90,friend:130,acq:190}[e.t]||130))*0.03*alpha;
+    a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;
+  }
+  for(const m of nodes){
+    if(m.fixed){m.vx=m.vy=0;continue}
+    m.vx*=0.78;m.vy*=0.78;m.x+=m.vx;m.y+=m.vy;
+  }
+  alpha*=0.992;
+}
+
+/* ---------- drawing ---------- */
+function paint(c,w,h,v,bg,transparentUI){
+  const css=getComputedStyle(document.documentElement);
+  const ink=css.getPropertyValue('--ink').trim(),edgeC=css.getPropertyValue('--edge').trim(),acc=css.getPropertyValue('--accent').trim();
+  c.save();c.clearRect(0,0,w,h);
+  if(bg){c.fillStyle=bg;c.fillRect(0,0,w,h)}
+  c.translate(v.x,v.y);c.scale(v.k,v.k);
+  const focus=sel?new Set([sel,...edges.filter(e=>e.a===sel||e.b===sel).map(e=>e.a===sel?e.b:e.a)]):null;
+  for(const e of edges){
+    const a=byId(e.a),b=byId(e.b);if(!a||!b)continue;
+    const on=selEdge&&selEdge.a===e.a&&selEdge.b===e.b;
+    const dim=focus&&!(e.a===sel||e.b===sel);
+    const T=TYPES[e.t||'friend'];c.globalAlpha=(mode==='edge'&&moved&&dragEdge&&dragEdge.e===e)?0.15:dim?0.18:1;c.strokeStyle=on?acc:(T.color||edgeC);c.lineWidth=T.w+(on?2:0);c.setLineDash(T.dash);
+    c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();c.setLineDash([]);
+  }
+  c.globalAlpha=1;
+  if(!transparentUI&&(mode==='link'||(mode==='edge'&&moved))&&linkFrom){
+    c.strokeStyle=acc;c.lineWidth=2.5;c.setLineDash([6,5]);c.beginPath();c.moveTo(linkFrom.x,linkFrom.y);
+    const t=linkTarget||linkTo;c.lineTo(t.x,t.y);c.stroke();c.setLineDash([]);
+  }
+  for(const n of nodes){
+    const r=rad(n),dim=focus&&!focus.has(n.id);
+    c.globalAlpha=dim?0.3:1;
+    if(!transparentUI&&(n.id===sel||n===hover||n===linkTarget)){
+      c.strokeStyle=n===linkTarget?acc:(n.id===sel?ink:acc);c.lineWidth=2;c.setLineDash(n.id===sel?[]:[3,3]);
+      c.beginPath();c.arc(n.x,n.y,r+8,0,6.283);c.stroke();c.setLineDash([]);
+    }
+    c.fillStyle=n.color;c.beginPath();c.arc(n.x,n.y,r,0,6.283);c.fill();
+    c.fillStyle='#fff';c.font='600 '+Math.round(r*0.7)+'px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';
+    c.fillText(initials(n.name),n.x,n.y+1);
+    c.fillStyle=ink;c.font='13px system-ui,sans-serif';c.textBaseline='top';
+    c.fillText(n.name.trim(),n.x,n.y+r+(n.id===sel?12:5));
+  }
+  c.restore();c.globalAlpha=1;
+}
+function frame(){step();ctx.setTransform(dpr,0,0,dpr,0,0);paint(ctx,W,H,view,null,false);requestAnimationFrame(frame)}
+
+/* ---------- interaction ---------- */
+let mode=null,drag=null,dragEdge=null,linkFrom=null,linkTo=null,linkTarget=null,hover=null,moved=false,start=null,last=null;
+const pt=e=>{const r=cv.getBoundingClientRect();return{sx:e.clientX-r.left,sy:e.clientY-r.top,x:(e.clientX-r.left-view.x)/view.k,y:(e.clientY-r.top-view.y)/view.k}};
+function hit(p,ring){
+  let best=null,bd=1e9;
+  for(const n of nodes){const d=Math.hypot(p.x-n.x,p.y-n.y),lim=rad(n)+(ring?14/view.k:0);if(d<=lim&&d<bd){best=n;bd=d}}
+  return best?{n:best,zone:bd<=rad(best)-3/view.k?'body':'ring'}:null;
+}
+function edgeAt(p){
+  for(const e of edges){
+    const a=byId(e.a),b=byId(e.b);if(!a||!b)continue;
+    const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1;
+    let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2;t=Math.max(0,Math.min(1,t));
+    if(Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy))<8/view.k)return e;
+  }
+  return null;
+}
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);const p=pt(e);start=p;last=p;moved=false;
+  const h=hit(p,true);
+  if(h){
+    if(h.zone==='ring'){mode='link';linkFrom=h.n;linkTo=p;linkTarget=null}
+    else{mode='drag';drag=h.n;drag.fixed=true;drag.ox=p.x-h.n.x;drag.oy=p.y-h.n.y}
+  }else{const ed=edgeAt(p);if(ed){const A=byId(ed.a),B=byId(ed.b);const fa=Math.hypot(p.x-A.x,p.y-A.y)>Math.hypot(p.x-B.x,p.y-B.y);mode='edge';dragEdge={e:ed,fixed:fa?A:B,moving:fa?B:A};linkFrom=dragEdge.fixed;linkTo=p;linkTarget=null}else mode='pan'}
+});
+cv.addEventListener('pointermove',e=>{
+  const p=pt(e);
+  if(!mode){const h=hit(p,true);hover=h?h.n:null;cv.style.cursor=h?(h.zone==='ring'?'crosshair':'grab'):(edgeAt(p)?'grab':'default');return}
+  if(Math.hypot(p.sx-start.sx,p.sy-start.sy)>4)moved=true;
+  if(mode==='drag'&&moved){drag.x=p.x-drag.ox;drag.y=p.y-drag.oy;alpha=Math.max(alpha,0.35)}
+  else if(mode==='link'||(mode==='edge'&&moved)){linkTo=p;const h=hit(p,true);linkTarget=h&&h.n!==linkFrom?h.n:null}
+  else if(mode==='pan'){view.x+=p.sx-last.sx;view.y+=p.sy-last.sy}
+  last=p;
+});
+cv.addEventListener('pointerup',e=>{
+  const p=pt(e);
+  if(mode==='drag'){drag.fixed=false;if(!moved){sel=drag.id;selEdge=null;render()}else save()}
+  else if(mode==='link'){
+    if(linkTarget){if(!hasEdge(linkFrom.id,linkTarget.id))toggleEdge(linkFrom.id,linkTarget.id);sel=linkFrom.id;selEdge=null;render()}
+    else if(!moved){sel=linkFrom.id;selEdge=null;render()}
+  }else if(mode==='edge'){const d=dragEdge;if(!moved){selEdge=d.e;sel=null;render()}else if(linkTarget&&linkTarget!==d.moving&&!hasEdge(d.fixed.id,linkTarget.id)){d.e.a=d.fixed.id;d.e.b=linkTarget.id;alpha=1;save();selEdge=d.e;sel=null;render()}}else if(mode==='pan'&&!moved){
+    const ed=edgeAt(p);
+    if(ed){selEdge=ed;sel=null}else{sel=null;selEdge=null}
+    render();
+  }
+  mode=null;drag=null;dragEdge=null;linkFrom=null;linkTarget=null;
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();const p=pt(e),k=Math.max(0.3,Math.min(3,view.k*(e.deltaY<0?1.1:0.9)));
+  view.x=p.sx-p.x*k;view.y=p.sy-p.y*k;view.k=k;
+},{passive:false});
+addEventListener('keydown',e=>{
+  if(/INPUT/.test(document.activeElement.tagName))return;
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(selEdge){toggleEdge(selEdge.a,selEdge.b);selEdge=null;render()}
+    else if(sel)removePerson(sel);
+  }
+  if(e.key==='Escape'){sel=null;selEdge=null;render()}
+});
+
+/* ---------- toolbar ---------- */
+$('#addf').onsubmit=e=>{
+  e.preventDefault();const v=$('#name').value;
+  v.split(/[,\n]/).map(s=>s.trim()).filter(Boolean).forEach(addPerson);
+  $('#name').value='';alpha=1;save();render();
+};
+function syncSize(){$('#bSize').textContent='Size by links: '+(sizeByDeg?'on':'off')}
+$('#bSize').onclick=()=>{sizeByDeg=!sizeByDeg;syncSize();save()};
+$('#bSample').onclick=async()=>{await newSession('Sample');
+  nodes=[];edges=[];uid=1;sel=null;selEdge=null;
+  ['Aisha','Ben','Chen','Dina','Eli','Farah','Gabe','Hana'].forEach(addPerson);
+  [[1,2,'close'],[1,3,'friend'],[2,3,'close'],[3,4,'acq'],[4,5,'friend'],[5,6,'close'],[4,6,'friend'],[6,7,'acq'],[7,8,'friend'],[5,8,'acq'],[1,4,'acq']].forEach(([a,b,t])=>edges.push({a,b,t}));
+  alpha=1;save();render();
+};
+$('#bClear').onclick=()=>{
+  if(!nodes.length)return;
+  if($('#bClear').dataset.arm){nodes=[];edges=[];sel=null;selEdge=null;uid=1;save();render();$('#bClear').textContent='Clear';delete $('#bClear').dataset.arm;return}
+  $('#bClear').dataset.arm=1;$('#bClear').textContent='Sure? Click again';
+  setTimeout(()=>{$('#bClear').textContent='Clear';delete $('#bClear').dataset.arm},2500);
+};
+$('#bExport').onclick=()=>{
+  if(!nodes.length)return;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  nodes.forEach(n=>{const r=rad(n);x0=Math.min(x0,n.x-r-60);x1=Math.max(x1,n.x+r+60);y0=Math.min(y0,n.y-r-30);y1=Math.max(y1,n.y+r+50)});
+  const w=x1-x0,h=y1-y0,s=2,o=document.createElement('canvas');o.width=w*s;o.height=h*s;
+  const bg=getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()||'#fff';
+  const oc=o.getContext('2d');oc.scale(s,s);
+  paint(oc,w,h,{x:-x0,y:-y0,k:1},bg,true);
+  const url=o.toDataURL('image/png');$('#mimg').src=url;$('#mdl').href=url;$('#modal').classList.add('on');
+};
+$('#mclose').onclick=()=>$('#modal').classList.remove('on');
+
+/* ---------- init ---------- */
+function resize(){
+  const r=cv.getBoundingClientRect();dpr=window.devicePixelRatio||1;
+  const first=!W;W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;
+  if(first){view.x=W/2;view.y=H/2}
+}
+new ResizeObserver(resize).observe(cv);
+syncSize();syncSeg();resize();render();frame();init();
+</script>
+</body>
+</html>
